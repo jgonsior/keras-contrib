@@ -4,78 +4,45 @@
 from __future__ import absolute_import, division, print_function
 
 import warnings
+from pprint import pprint
 
 import numpy as np
 from keras import activations
 from keras import backend as K
 from keras import constraints, initializers, regularizers
 from keras.engine.base_layer import InputSpec, Layer
+from keras.layers import LSTM
 from keras.layers.recurrent import RNN
 from keras.legacy import interfaces
 # Legacy support.
 from keras.legacy.layers import Recurrent
+from keras.models import Sequential
 from keras.utils.generic_utils import has_arg, to_list
 
 
+class InsideSequential(Sequential):
+    def __init__(self, layers=None, name=None):
+        super(Sequential, self).__init__(name=name)
+
+    def predictClasses(self,
+                       x,
+                       batch_size=32,
+                       verbose=0,
+                       debugActivations=None):
+
+        for layer in self._layers:
+            if layer.__class__ == InsideLSTM:
+                layer.setDebugActivations(debugActivations)
+        return self.predict_classes(x, batch_size, verbose)
+
+
 class InsideLSTMCell(Layer):
-    """Cell class for the LSTM layer.
-    # Arguments
-        units: Positive integer, dimensionality of the output space.
-        activation: Activation function to use
-            (see [activations](../activations.md)).
-            Default: hyperbolic tangent (`tanh`).
-            If you pass `None`, no activation is applied
-            (ie. "linear" activation: `a(x) = x`).
-        recurrent_activation: Activation function to use
-            for the recurrent step
-            (see [activations](../activations.md)).
-            Default: hard sigmoid (`hard_sigmoid`).
-            If you pass `None`, no activation is applied
-            (ie. "linear" activation: `a(x) = x`).x
-        use_bias: Boolean, whether the layer uses a bias vector.
-        kernel_initializer: Initializer for the `kernel` weights matrix,
-            used for the linear transformation of the inputs
-            (see [initializers](../initializers.md)).
-        recurrent_initializer: Initializer for the `recurrent_kernel`
-            weights matrix,
-            used for the linear transformation of the recurrent state
-            (see [initializers](../initializers.md)).
-        bias_initializer: Initializer for the bias vector
-            (see [initializers](../initializers.md)).
-        unit_forget_bias: Boolean.
-            If True, add 1 to the bias of the forget gate at initialization.
-            Setting it to true will also force `bias_initializer="zeros"`.
-            This is recommended in [Jozefowicz et al. (2015)](
-            http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf).
-        kernel_regularizer: Regularizer function applied to
-            the `kernel` weights matrix
-            (see [regularizer](../regularizers.md)).
-        recurrent_regularizer: Regularizer function applied to
-            the `recurrent_kernel` weights matrix
-            (see [regularizer](../regularizers.md)).
-        bias_regularizer: Regularizer function applied to the bias vector
-            (see [regularizer](../regularizers.md)).
-        kernel_constraint: Constraint function applied to
-            the `kernel` weights matrix
-            (see [constraints](../constraints.md)).
-        recurrent_constraint: Constraint function applied to
-            the `recurrent_kernel` weights matrix
-            (see [constraints](../constraints.md)).
-        bias_constraint: Constraint function applied to the bias vector
-            (see [constraints](../constraints.md)).
-        dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the inputs.
-        recurrent_dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the recurrent state.
-        implementation: Implementation mode, either 1 or 2.
-            Mode 1 will structure its operations as a larger number of
-            smaller dot products and additions, whereas mode 2 will
-            batch them into fewer, larger operations. These modes will
-            have different performance profiles on different hardware and
-            for different applications.
-    """
+
+    debugActivations = None
+
+    def setDebugActivations(self, debugActivations):
+        pprint(debugActivations)
+        self.debugActivations = debugActivations
 
     def __init__(self,
                  units,
@@ -96,6 +63,7 @@ class InsideLSTMCell(Layer):
                  recurrent_dropout=0.,
                  implementation=1,
                  **kwargs):
+
         super(InsideLSTMCell, self).__init__(**kwargs)
         self.units = units
         self.activation = activations.get(activation)
@@ -227,6 +195,12 @@ class InsideLSTMCell(Layer):
             x_f = K.dot(inputs_f, self.kernel_f)
             x_c = K.dot(inputs_c, self.kernel_c)
             x_o = K.dot(inputs_o, self.kernel_o)
+
+            pprint(self.debugActivations)
+
+            if self.debugActivations is not None:
+                x_i = K.print_tensor(x_i, message='x_i = ')
+
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
                 x_f = K.bias_add(x_f, self.bias_f)
@@ -243,14 +217,20 @@ class InsideLSTMCell(Layer):
                 h_tm1_f = h_tm1
                 h_tm1_c = h_tm1
                 h_tm1_o = h_tm1
+
             i = self.recurrent_activation(
                 x_i + K.dot(h_tm1_i, self.recurrent_kernel_i))
+
+            #i = K.print_tensor(i, message='i = ')
             f = self.recurrent_activation(
                 x_f + K.dot(h_tm1_f, self.recurrent_kernel_f))
+            #f = K.print_tensor(i, message='f = ')
             c = f * c_tm1 + i * self.activation(
                 x_c + K.dot(h_tm1_c, self.recurrent_kernel_c))
+            #c = K.print_tensor(i, message='c = ')
             o = self.recurrent_activation(
                 x_o + K.dot(h_tm1_o, self.recurrent_kernel_o))
+            #o = K.print_tensor(i, message='o = ')
         else:
             if 0. < self.dropout < 1.:
                 inputs *= dp_mask[0]
@@ -275,6 +255,7 @@ class InsideLSTMCell(Layer):
         if 0 < self.dropout + self.recurrent_dropout:
             if training is None:
                 h._uses_learning_phase = True
+
         return h, [h, c]
 
     def get_config(self):
@@ -319,93 +300,8 @@ class InsideLSTMCell(Layer):
 
 
 class InsideLSTM(RNN):
-    """Long Short-Term Memory layer - Hochreiter 1997.
-    # Arguments
-        units: Positive integer, dimensionality of the output space.
-        activation: Activation function to use
-            (see [activations](../activations.md)).
-            Default: hyperbolic tangent (`tanh`).
-            If you pass `None`, no activation is applied
-            (ie. "linear" activation: `a(x) = x`).
-        recurrent_activation: Activation function to use
-            for the recurrent step
-            (see [activations](../activations.md)).
-            Default: hard sigmoid (`hard_sigmoid`).
-            If you pass `None`, no activation is applied
-            (ie. "linear" activation: `a(x) = x`).
-        use_bias: Boolean, whether the layer uses a bias vector.
-        kernel_initializer: Initializer for the `kernel` weights matrix,
-            used for the linear transformation of the inputs.
-            (see [initializers](../initializers.md)).
-        recurrent_initializer: Initializer for the `recurrent_kernel`
-            weights matrix,
-            used for the linear transformation of the recurrent state.
-            (see [initializers](../initializers.md)).
-        bias_initializer: Initializer for the bias vector
-            (see [initializers](../initializers.md)).
-        unit_forget_bias: Boolean.
-            If True, add 1 to the bias of the forget gate at initialization.
-            Setting it to true will also force `bias_initializer="zeros"`.
-            This is recommended in [Jozefowicz et al. (2015)](
-            http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf).
-        kernel_regularizer: Regularizer function applied to
-            the `kernel` weights matrix
-            (see [regularizer](../regularizers.md)).
-        recurrent_regularizer: Regularizer function applied to
-            the `recurrent_kernel` weights matrix
-            (see [regularizer](../regularizers.md)).
-        bias_regularizer: Regularizer function applied to the bias vector
-            (see [regularizer](../regularizers.md)).
-        activity_regularizer: Regularizer function applied to
-            the output of the layer (its "activation").
-            (see [regularizer](../regularizers.md)).
-        kernel_constraint: Constraint function applied to
-            the `kernel` weights matrix
-            (see [constraints](../constraints.md)).
-        recurrent_constraint: Constraint function applied to
-            the `recurrent_kernel` weights matrix
-            (see [constraints](../constraints.md)).
-        bias_constraint: Constraint function applied to the bias vector
-            (see [constraints](../constraints.md)).
-        dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the inputs.
-        recurrent_dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the recurrent state.
-        implementation: Implementation mode, either 1 or 2.
-            Mode 1 will structure its operations as a larger number of
-            smaller dot products and additions, whereas mode 2 will
-            batch them into fewer, larger operations. These modes will
-            have different performance profiles on different hardware and
-            for different applications.
-        return_sequences: Boolean. Whether to return the last output
-            in the output sequence, or the full sequence.
-        return_state: Boolean. Whether to return the last state
-            in addition to the output. The returned elements of the
-            states list are the hidden state and the cell state, respectively.
-        go_backwards: Boolean (default False).
-            If True, process the input sequence backwards and return the
-            reversed sequence.
-        stateful: Boolean (default False). If True, the last state
-            for each sample at index i in a batch will be used as initial
-            state for the sample of index i in the following batch.
-        unroll: Boolean (default False).
-            If True, the network will be unrolled,
-            else a symbolic loop will be used.
-            Unrolling can speed-up a RNN,
-            although it tends to be more memory-intensive.
-            Unrolling is only suitable for short sequences.
-    # References
-        - [Long short-term memory](
-          http://www.bioinf.jku.at/publications/older/2604.pdf)
-        - [Learning to forget: Continual prediction with LSTM](
-          http://www.mitpressjournals.org/doi/pdf/10.1162/089976600300015015)
-        - [Supervised sequence labeling with recurrent neural networks](
-          http://www.cs.toronto.edu/~graves/preprint.pdf)
-        - [A Theoretically Grounded Application of Dropout in
-           Recurrent Neural Networks](https://arxiv.org/abs/1512.05287)
-    """
+
+    insideCell = None
 
     @interfaces.legacy_recurrent_support
     def __init__(self,
@@ -472,130 +368,13 @@ class InsideLSTM(RNN):
             stateful=stateful,
             unroll=unroll,
             **kwargs)
+
+        self.insideCell = cell
+
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    def call(self, inputs, mask=None, training=None, initial_state=None):
-        self.cell._dropout_mask = None
-        self.cell._recurrent_dropout_mask = None
-        return super(InsideLSTM, self).call(
-            inputs, mask=mask, training=training, initial_state=initial_state)
-
-    @property
-    def units(self):
-        return self.cell.units
-
-    @property
-    def activation(self):
-        return self.cell.activation
-
-    @property
-    def recurrent_activation(self):
-        return self.cell.recurrent_activation
-
-    @property
-    def use_bias(self):
-        return self.cell.use_bias
-
-    @property
-    def kernel_initializer(self):
-        return self.cell.kernel_initializer
-
-    @property
-    def recurrent_initializer(self):
-        return self.cell.recurrent_initializer
-
-    @property
-    def bias_initializer(self):
-        return self.cell.bias_initializer
-
-    @property
-    def unit_forget_bias(self):
-        return self.cell.unit_forget_bias
-
-    @property
-    def kernel_regularizer(self):
-        return self.cell.kernel_regularizer
-
-    @property
-    def recurrent_regularizer(self):
-        return self.cell.recurrent_regularizer
-
-    @property
-    def bias_regularizer(self):
-        return self.cell.bias_regularizer
-
-    @property
-    def kernel_constraint(self):
-        return self.cell.kernel_constraint
-
-    @property
-    def recurrent_constraint(self):
-        return self.cell.recurrent_constraint
-
-    @property
-    def bias_constraint(self):
-        return self.cell.bias_constraint
-
-    @property
-    def dropout(self):
-        return self.cell.dropout
-
-    @property
-    def recurrent_dropout(self):
-        return self.cell.recurrent_dropout
-
-    @property
-    def implementation(self):
-        return self.cell.implementation
-
-    def get_config(self):
-        config = {
-            'units':
-            self.units,
-            'activation':
-            activations.serialize(self.activation),
-            'recurrent_activation':
-            activations.serialize(self.recurrent_activation),
-            'use_bias':
-            self.use_bias,
-            'kernel_initializer':
-            initializers.serialize(self.kernel_initializer),
-            'recurrent_initializer':
-            initializers.serialize(self.recurrent_initializer),
-            'bias_initializer':
-            initializers.serialize(self.bias_initializer),
-            'unit_forget_bias':
-            self.unit_forget_bias,
-            'kernel_regularizer':
-            regularizers.serialize(self.kernel_regularizer),
-            'recurrent_regularizer':
-            regularizers.serialize(self.recurrent_regularizer),
-            'bias_regularizer':
-            regularizers.serialize(self.bias_regularizer),
-            'activity_regularizer':
-            regularizers.serialize(self.activity_regularizer),
-            'kernel_constraint':
-            constraints.serialize(self.kernel_constraint),
-            'recurrent_constraint':
-            constraints.serialize(self.recurrent_constraint),
-            'bias_constraint':
-            constraints.serialize(self.bias_constraint),
-            'dropout':
-            self.dropout,
-            'recurrent_dropout':
-            self.recurrent_dropout,
-            'implementation':
-            self.implementation
-        }
-        base_config = super(LSTM, self).get_config()
-        del base_config['cell']
-        return dict(list(base_config.items()) + list(config.items()))
-
-    @classmethod
-    def from_config(cls, config):
-        if 'implementation' in config and config['implementation'] == 0:
-            config['implementation'] = 1
-        return cls(**config)
+    def setDebugActivations(self, debugActivations):
+        self.cell.setDebugActivations(debugActivations)
 
 
 def _generate_dropout_mask(ones, rate, training=None, count=1):
