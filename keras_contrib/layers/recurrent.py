@@ -18,6 +18,11 @@ from keras.legacy import interfaces
 from keras.legacy.layers import Recurrent
 from keras.models import Sequential
 from keras.utils.generic_utils import has_arg, to_list
+from tensorflow.python.ops import logging_ops
+
+
+def print_tensor_long(x, message=""):
+    return logging_ops.Print(x, [x], message, summarize=100)
 
 
 class InsideLSTMCell(Layer):
@@ -118,8 +123,8 @@ class InsideLSTMCell(Layer):
                 constraint=self.bias_constraint)
         else:
             self.bias = None
-
         self.kernel_i = self.kernel[:, :self.units]
+        self.kernel_i = print_tensor_long(self.kernel_i, message="kernel_i = ")
         self.kernel_f = self.kernel[:, self.units:self.units * 2]
         self.kernel_c = self.kernel[:, self.units * 2:self.units * 3]
         self.kernel_o = self.kernel[:, self.units * 3:]
@@ -164,6 +169,8 @@ class InsideLSTMCell(Layer):
         c_tm1 = states[1]  # previous carry state
 
         if self.implementation == 1:
+            if self.activationGate is not None:
+                inputs = K.print_tensor(inputs, message="inputs = ")
             if 0 < self.dropout < 1.:
                 inputs_i = inputs * dp_mask[0]
                 inputs_f = inputs * dp_mask[1]
@@ -174,13 +181,17 @@ class InsideLSTMCell(Layer):
                 inputs_f = inputs
                 inputs_c = inputs
                 inputs_o = inputs
+
+            if self.activationGate is not None:
+                self.kernel_i = K.print_tensor(
+                    self.kernel_i, message="kernel_i = ")
             x_i = K.dot(inputs_i, self.kernel_i)
             x_f = K.dot(inputs_f, self.kernel_f)
             x_c = K.dot(inputs_c, self.kernel_c)
             x_o = K.dot(inputs_o, self.kernel_o)
 
             if self.activationGate is not None:
-                x_f = K.print_tensor(x_i, message='x_i = ')
+                x_i = K.print_tensor(x_i, message='x_i = ')
 
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
@@ -281,9 +292,6 @@ class InsideLSTMCell(Layer):
 
 
 class InsideLSTM(RNN):
-
-    insideCell = None
-
     @interfaces.legacy_recurrent_support
     def __init__(self,
                  units,
@@ -352,8 +360,6 @@ class InsideLSTM(RNN):
             unroll=unroll,
             **kwargs)
 
-        self.insideCell = cell
-
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
 
@@ -402,5 +408,5 @@ def _standardize_args(inputs, initial_state, constants, num_constants):
         return [x]
 
     initial_state = to_list_or_none(initial_state)
-    constants = to_list_or_none(constants)
+    constantn = to_list_or_none(constants)
     return inputs, initial_state, constants
