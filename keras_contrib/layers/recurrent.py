@@ -20,29 +20,9 @@ from keras.models import Sequential
 from keras.utils.generic_utils import has_arg, to_list
 
 
-class InsideSequential(Sequential):
-    def __init__(self, layers=None, name=None):
-        super(Sequential, self).__init__(name=name)
-
-    def predictClasses(self,
-                       x,
-                       batch_size=32,
-                       verbose=0,
-                       debugActivations=None):
-
-        for layer in self._layers:
-            if layer.__class__ == InsideLSTM:
-                layer.setDebugActivations(debugActivations)
-        return self.predict_classes(x, batch_size, verbose)
-
-
 class InsideLSTMCell(Layer):
 
-    debugActivations = None
-
-    def setDebugActivations(self, debugActivations):
-        pprint(debugActivations)
-        self.debugActivations = debugActivations
+    activationGate = None
 
     def __init__(self,
                  units,
@@ -62,7 +42,10 @@ class InsideLSTMCell(Layer):
                  dropout=0.,
                  recurrent_dropout=0.,
                  implementation=1,
+                 activationGate=None,
                  **kwargs):
+
+        self.activationGate = activationGate
 
         super(InsideLSTMCell, self).__init__(**kwargs)
         self.units = units
@@ -196,10 +179,8 @@ class InsideLSTMCell(Layer):
             x_c = K.dot(inputs_c, self.kernel_c)
             x_o = K.dot(inputs_o, self.kernel_o)
 
-            pprint(self.debugActivations)
-
-            if self.debugActivations is not None:
-                x_i = K.print_tensor(x_i, message='x_i = ')
+            if self.activationGate is not None:
+                x_f = K.print_tensor(x_i, message='x_i = ')
 
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
@@ -328,6 +309,7 @@ class InsideLSTM(RNN):
                  go_backwards=False,
                  stateful=False,
                  unroll=False,
+                 activationGate=None,
                  **kwargs):
         if implementation == 0:
             warnings.warn('`implementation=0` has been deprecated, '
@@ -359,7 +341,8 @@ class InsideLSTM(RNN):
             bias_constraint=bias_constraint,
             dropout=dropout,
             recurrent_dropout=recurrent_dropout,
-            implementation=implementation)
+            implementation=implementation,
+            activationGate=activationGate)
         super(InsideLSTM, self).__init__(
             cell,
             return_sequences=return_sequences,
@@ -372,9 +355,6 @@ class InsideLSTM(RNN):
         self.insideCell = cell
 
         self.activity_regularizer = regularizers.get(activity_regularizer)
-
-    def setDebugActivations(self, debugActivations):
-        self.cell.setDebugActivations(debugActivations)
 
 
 def _generate_dropout_mask(ones, rate, training=None, count=1):
