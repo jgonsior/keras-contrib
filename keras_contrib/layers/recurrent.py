@@ -22,13 +22,12 @@ from tensorflow.python.ops import logging_ops
 
 
 def print_tensor_long(x, message=""):
-    return logging_ops.Print(x, [x], message, summarize=100)
+    return logging_ops.Print(x, [x], message, summarize=10000)
 
 
 class InsideLSTMCell(Layer):
 
     activationGate = None
-    name = ""
 
     def __init__(self,
                  units,
@@ -49,11 +48,9 @@ class InsideLSTMCell(Layer):
                  recurrent_dropout=0.,
                  implementation=1,
                  activationGate=None,
-                 name="",
                  **kwargs):
 
         self.activationGate = activationGate
-        self.name = name
 
         super(InsideLSTMCell, self).__init__(**kwargs)
         self.units = units
@@ -193,7 +190,7 @@ class InsideLSTMCell(Layer):
             x_o = K.dot(inputs_o, self.kernel_o)
 
             if self.activationGate is not None:
-                x_i = print_tensor_long(x_i, message=self.name + "x_i" + ": ")
+                x_c = print_tensor_long(x_i, message=self.name + "_c" + ": ")
 
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
@@ -351,8 +348,7 @@ class InsideLSTM(RNN):
             dropout=dropout,
             recurrent_dropout=recurrent_dropout,
             implementation=implementation,
-            activationGate=activationGate,
-            name=kwargs['name'])
+            activationGate=activationGate)
         super(InsideLSTM, self).__init__(
             cell,
             return_sequences=return_sequences,
