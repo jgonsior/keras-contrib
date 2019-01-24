@@ -170,6 +170,8 @@ class InsideLSTMCell(Layer):
         h_tm1 = states[0]  # previous memory state
         c_tm1 = states[1]  # previous carry state
 
+        #  inputs = print_tensor_long(inputs, message=self.name + "_inputs: ")
+
         if self.implementation == 1:
             #  if self.activationGate is not None:
             #  inputs = K.print_tensor(inputs, message="inputs = ")
