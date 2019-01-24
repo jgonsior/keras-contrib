@@ -28,6 +28,7 @@ def print_tensor_long(x, message=""):
 class InsideLSTMCell(Layer):
 
     activationGate = None
+    name = ""
 
     def __init__(self,
                  units,
@@ -48,9 +49,11 @@ class InsideLSTMCell(Layer):
                  recurrent_dropout=0.,
                  implementation=1,
                  activationGate=None,
+                 name="",
                  **kwargs):
 
         self.activationGate = activationGate
+        self.name = name
 
         super(InsideLSTMCell, self).__init__(**kwargs)
         self.units = units
@@ -102,6 +105,9 @@ class InsideLSTMCell(Layer):
             initializer=self.recurrent_initializer,
             regularizer=self.recurrent_regularizer,
             constraint=self.recurrent_constraint)
+        #  self.kernel = print_tensor_long(self.kernel, message="kernel = ")
+        #  self.recurrent_kernel = print_tensor_long(
+        #  self.recurrent_kernel, message="rernel = ")
 
         if self.use_bias:
             if self.unit_forget_bias:
@@ -124,7 +130,6 @@ class InsideLSTMCell(Layer):
         else:
             self.bias = None
         self.kernel_i = self.kernel[:, :self.units]
-        self.kernel_i = print_tensor_long(self.kernel_i, message="kernel_i = ")
         self.kernel_f = self.kernel[:, self.units:self.units * 2]
         self.kernel_c = self.kernel[:, self.units * 2:self.units * 3]
         self.kernel_o = self.kernel[:, self.units * 3:]
@@ -169,8 +174,8 @@ class InsideLSTMCell(Layer):
         c_tm1 = states[1]  # previous carry state
 
         if self.implementation == 1:
-            if self.activationGate is not None:
-                inputs = K.print_tensor(inputs, message="inputs = ")
+            #  if self.activationGate is not None:
+            #  inputs = K.print_tensor(inputs, message="inputs = ")
             if 0 < self.dropout < 1.:
                 inputs_i = inputs * dp_mask[0]
                 inputs_f = inputs * dp_mask[1]
@@ -182,16 +187,13 @@ class InsideLSTMCell(Layer):
                 inputs_c = inputs
                 inputs_o = inputs
 
-            if self.activationGate is not None:
-                self.kernel_i = K.print_tensor(
-                    self.kernel_i, message="kernel_i = ")
             x_i = K.dot(inputs_i, self.kernel_i)
             x_f = K.dot(inputs_f, self.kernel_f)
             x_c = K.dot(inputs_c, self.kernel_c)
             x_o = K.dot(inputs_o, self.kernel_o)
 
             if self.activationGate is not None:
-                x_i = K.print_tensor(x_i, message='x_i = ')
+                x_i = print_tensor_long(x_i, message=self.name + "x_i" + ": ")
 
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
@@ -331,7 +333,6 @@ class InsideLSTM(RNN):
                 'or use the TensorFlow backend.')
             dropout = 0.
             recurrent_dropout = 0.
-
         cell = InsideLSTMCell(
             units,
             activation=activation,
@@ -350,7 +351,8 @@ class InsideLSTM(RNN):
             dropout=dropout,
             recurrent_dropout=recurrent_dropout,
             implementation=implementation,
-            activationGate=activationGate)
+            activationGate=activationGate,
+            name=kwargs['name'])
         super(InsideLSTM, self).__init__(
             cell,
             return_sequences=return_sequences,
