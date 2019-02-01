@@ -192,7 +192,7 @@ class InsideLSTMCell(Layer):
             x_o = K.dot(inputs_o, self.kernel_o)
 
             if self.activationGate is not None:
-                x_c = print_tensor_long(x_i, message=self.name + "_c" + ": ")
+                x_c = print_tensor_long(x_c, message=self.name + "_c" + ": ")
 
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
