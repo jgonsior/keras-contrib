@@ -170,11 +170,7 @@ class InsideLSTMCell(Layer):
         h_tm1 = states[0]  # previous memory state
         c_tm1 = states[1]  # previous carry state
 
-        #  inputs = print_tensor_long(inputs, message=self.name + "_inputs: ")
-
         if self.implementation == 1:
-            #  if self.activationGate is not None:
-            #  inputs = K.print_tensor(inputs, message="inputs = ")
             if 0 < self.dropout < 1.:
                 inputs_i = inputs * dp_mask[0]
                 inputs_f = inputs * dp_mask[1]
@@ -190,9 +186,6 @@ class InsideLSTMCell(Layer):
             x_f = K.dot(inputs_f, self.kernel_f)
             x_c = K.dot(inputs_c, self.kernel_c)
             x_o = K.dot(inputs_o, self.kernel_o)
-
-            if self.activationGate is not None:
-                x_c = print_tensor_long(x_c, message=self.name + "_c" + ": ")
 
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
@@ -214,16 +207,13 @@ class InsideLSTMCell(Layer):
             i = self.recurrent_activation(
                 x_i + K.dot(h_tm1_i, self.recurrent_kernel_i))
 
-            #i = K.print_tensor(i, message='i = ')
             f = self.recurrent_activation(
                 x_f + K.dot(h_tm1_f, self.recurrent_kernel_f))
-            #f = K.print_tensor(i, message='f = ')
             c = f * c_tm1 + i * self.activation(
                 x_c + K.dot(h_tm1_c, self.recurrent_kernel_c))
-            #c = K.print_tensor(i, message='c = ')
             o = self.recurrent_activation(
                 x_o + K.dot(h_tm1_o, self.recurrent_kernel_o))
-            #o = K.print_tensor(i, message='o = ')
+
         else:
             if 0. < self.dropout < 1.:
                 inputs *= dp_mask[0]
@@ -243,6 +233,12 @@ class InsideLSTMCell(Layer):
             f = self.recurrent_activation(z1)
             c = f * c_tm1 + i * self.activation(z2)
             o = self.recurrent_activation(z3)
+
+            if self.activationGate is not None:
+                i = print_tensor_long(i, message=self.name + "_i" + ": ")
+                f = print_tensor_long(f, message=self.name + "_f" + ": ")
+                c = print_tensor_long(c, message=self.name + "_c" + ": ")
+                o = print_tensor_long(o, message=self.name + "_o" + ": ")
 
         h = o * self.activation(c)
         if 0 < self.dropout + self.recurrent_dropout:
