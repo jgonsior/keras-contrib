@@ -239,7 +239,7 @@ class InsideLSTMCell(Layer):
         if self.activationGate is not None:
             i = print_tensor_long(i, message=self.name + "_i" + ": ")
             f = print_tensor_long(f, message=self.name + "_f" + ": ")
-            #  c = print_tensor_long(c, message=self.name + "_c" + ": ")
+            c = print_tensor_long(c, message=self.name + "_c" + ": ")
             #  o = print_tensor_long(o, message=self.name + "_o" + ": ")
             h = print_tensor_long(h, message=self.name + "_h" + ": ")
 
