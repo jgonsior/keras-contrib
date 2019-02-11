@@ -238,7 +238,7 @@ class InsideLSTMCell(Layer):
                 i = print_tensor_long(i, message=self.name + "_i" + ": ")
                 f = print_tensor_long(f, message=self.name + "_f" + ": ")
                 c = print_tensor_long(c, message=self.name + "_c" + ": ")
-                o = print_tensor_long(o, message=self.name + "_o" + ": ")
+                #  o = print_tensor_long(o, message=self.name + "_o" + ": ")
 
         h = o * self.activation(c)
         if 0 < self.dropout + self.recurrent_dropout:
